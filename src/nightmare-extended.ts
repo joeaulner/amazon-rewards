@@ -44,31 +44,31 @@ class NightmareExtended extends Nightmare {
         const giveawayType = await this.goto(href)
             .wait('.qa-giveaway-participation-action-container')
             .evaluate(() => {
-                return document.querySelectorAll('#box_click_target').length ? 'RedeemBox'
-                    : document.querySelectorAll('#youtube-outer-container').length ? 'YoutubeVideo'
-                        : document.querySelectorAll('#airy-outer-container').length ? 'AiryVideo'
-                            : document.querySelectorAll('.qa-giveaway-result-text').length ? 'Redeemed'
-                                : 'Unknown';
-            })
+                    return document.querySelectorAll('#box_click_target').length ? 'RedeemBox'
+                        : document.querySelectorAll('#youtube-outer-container').length ? 'YoutubeVideo'
+                            : document.querySelectorAll('#airy-outer-container').length ? 'AiryVideo'
+                                : document.querySelectorAll('.qa-giveaway-result-text').length ? 'Redeemed'
+                                    : 'Unknown';
+                })
             .then((type) => type as GiveawayType);
         let resultText = '';
         switch (giveawayType) {
+            case GiveawayType.Redeemed:
+                resultText = await this
+                    .evaluate(() => document.querySelectorAll('.qa-giveaway-result-text').item(0).textContent)
+                    .then(_ => _ as string);
+                break;
             case GiveawayType.RedeemBox:
                 resultText = await this.click('#box_click_target')
                     .wait('.qa-giveaway-result-text')
                     .evaluate(() => document.querySelectorAll('.qa-giveaway-result-text').item(0).textContent)
                     .then(_ => _ as string);
-                console.log(`${giveawayType}: ${resultText}`);
                 break;
-            case GiveawayType.Redeemed:
-                resultText = await this
-                    .evaluate(() => document.querySelectorAll('.qa-giveaway-result-text').item(0).textContent)
-                    .then(_ => _ as string);
-                console.log(`${giveawayType}: ${resultText}`);
-                break;
-            default:
-                console.log(giveawayType);
+            // case GiveawayType.YoutubeVideo:
+            //     resultText = await this.click('.ytp-large-play-button');
+            //     break;
         }
+        console.log(`${giveawayType}: ${resultText}`);
     }
 
     // youtube button selector: .enter-youtube-video-button:not(.disabled)
