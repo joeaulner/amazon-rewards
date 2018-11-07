@@ -26,21 +26,67 @@ let page: Puppeteer.Page;
             .map((element) => element.querySelector('a.giveAwayItemDetails'))
             .map((anchor: HTMLAnchorElement) => anchor.href);
     });
-    console.log('giveaway links:', giveawayLinks);
 
+    const giveaways = {
+        unhandled: [],
+        redeemed: []
+    };
     for (const href of giveawayLinks) {
         await page.goto(href);
         await page.waitFor('.qa-giveaway-participation-action-container');
         const giveawayType = await page.evaluate(() => {
             const hasElement = (selector) => Boolean(document.querySelectorAll(selector).length);
-            return hasElement('#box_click_target') ? 'RedeemBox'
-                : hasElement('#youtube-outer-container') ? 'YoutubeVideo'
-                    : hasElement('#airy-outer-container') ? 'AiryVideo'
-                        : hasElement('.qa-giveaway-result-text') ? 'Redeemed'
+            return hasElement('.qa-giveaway-result-text') ? 'Redeemed'
+                : hasElement('#box_click_target') ? 'RedeemBox'
+                    : hasElement('#youtube-outer-container') ? 'YoutubeVideo'
+                        : hasElement('#airy-outer-container') ? 'AiryVideo'
                             : 'Unknown';
         });
-        console.log('giveaway type:', giveawayType);
-    }
+        switch (giveawayType) {
+            case 'Redeemed':
+                // do nothing if giveaway is already redeemed
+                break;
+            case 'RedeemBox':
+                await handleRedeemBox(page);
+                break;
+            case 'YoutubeVideo':
+                await handleYoutubeVideo(page);
+                break;
+            default:
+                giveaways.unhandled.push({ href, giveawayType });
+                continue;
+        }
 
+        const resultTextSelector = '.qa-giveaway-result-text';
+        await page.waitFor(resultTextSelector);
+        const resultText = await page.$eval(resultTextSelector, (element) => element.textContent);
+        giveaways.redeemed.push({ href, resultText });
+    }
     await browser.close();
+
+    console.log('Redeemed Giveaways:');
+    giveaways.redeemed.forEach((giveaway) => {
+        if (giveaway.resultText !== 'Joseph, you didn\'t win') {
+            console.log('!'.repeat(20));
+            console.log(` result: ${giveaway.resultText}\n  href: ${giveaway.href}`);
+        }
+        console.log(` result: ${giveaway.resultText}\n  href: ${giveaway.href}`);
+    });
+    console.log('\nUnhandled Giveaways:');
+    giveaways.unhandled.forEach((giveaway) => {
+        console.log(` type: ${giveaway.giveawayType}\n  href: ${giveaway.href}`);
+    });
 })();
+
+async function handleRedeemBox(page: Puppeteer.Page) {
+    await page.waitFor('#box_click_target');
+    await page.click('#box_click_target');
+}
+
+async function handleYoutubeVideo(page: Puppeteer.Page) {
+    const iframe = await page.mainFrame().childFrames()[0];
+    await iframe.click('button.ytp-large-play-button');
+    await page.waitFor('input[name="continue"]:not([disabled="disabled"])');
+    await page.click('input[name="continue"]');
+    await handleRedeemBox(page);
+}
